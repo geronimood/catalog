@@ -3,7 +3,7 @@
 from flask import Flask, render_template, request, redirect, jsonify, url_for, flash
 from sqlalchemy import create_engine, asc
 from sqlalchemy.orm import sessionmaker
-#from database_setup import Base, Category, CategoryItem, User
+from database_setup import Base, Catalog, CategoryItem, User
 from flask import session as login_session
 import random
 import string
@@ -25,11 +25,11 @@ APPLICATION_NAME = "Category Item Catalog"
 
 
 # Connect to Database and create database session
-#engine = create_engine('sqlite:///catalog.db')
-#Base.metadata.bind = engine
+engine = create_engine('sqlite:///catalog.db')
+Base.metadata.bind = engine
 
-#DBSession = sessionmaker(bind=engine)
-#session = DBSession()
+DBSession = sessionmaker(bind=engine)
+session = DBSession()
 
 @app.route('/login')
 def showLogin():
@@ -97,7 +97,7 @@ def deleteCategoryItem(catalog_id, item_id):
 
 
 
-
+# Execute file if it is in the main directory and run the webserver on localhost port 8000
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
     app.debug = True
