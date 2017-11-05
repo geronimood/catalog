@@ -51,7 +51,11 @@ def gdisconnect():
 @app.route('/')
 @app.route('/catalog/')
 def showCatalog():
-    return 'list of all categories'
+    catalog = session.query(Catalog).order_by(asc(Catalog.name))
+    #if 'username' not in login_session:
+    #    return render_template('publicrestaurants.html', restaurants=restaurants)
+    #else:
+    return render_template('catalog.html', catalog=catalog)
 
 
 # Create a new category
