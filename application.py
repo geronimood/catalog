@@ -148,17 +148,44 @@ def newCategoryItem(catalog_id):
 # Edit a category item
 @app.route('/catalog/<int:catalog_id>/<int:item_id>/edit', methods=['GET', 'POST'])
 def editCategoryItem(catalog_id, item_id):
-    return 'edit category item'
+    #if 'username' not in login_session:
+    #    return redirect('/login')
+    editedCategoryItem = session.query(CategoryItem).filter_by(id=item_id).one()
+    catalog = session.query(Catalog).filter_by(id=catalog_id).one()
+    if login_session['user_id'] != catalog.user_id:
+        return "<script>function myFunction() {alert('You are not authorized to edit players to this team. Please create your own team in order to edit players.');}</script><body onload='myFunction()'>"
+    if request.method == 'POST':
+        if request.form['name']:
+            editedCategoryItem.name = request.form['name']
+        if request.form['description']:
+            editedCategoryItem.description = request.form['description']
+        session.add(editedCategoryItem)
+        session.commit()
+        flash('Player Successfully Edited')
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
+    else:
+        return render_template('editCategoryItem.html', catalog_id=catalog_id, item_id=item_id, item=editedCategoryItem)
 
 
 # Delete a category item
 @app.route('/catalog/<int:catalog_id>/<int:item_id>/delete', methods=['GET', 'POST'])
 def deleteCategoryItem(catalog_id, item_id):
-    return 'delete category item'
+    #if 'username' not in login_session:
+    #    return redirect('/login')
+    catalog = session.query(Catalog).filter_by(id=catalog_id).one()
+    categoryItemToDelete = session.query(CategoryItem).filter_by(id=item_id).one()
+    if login_session['user_id'] != restaurant.user_id:
+        return "<script>function myFunction() {alert('You are not authorized to delete players to this team. Please create your own team in order to delete players.');}</script><body onload='myFunction()'>"
+    if request.method == 'POST':
+        session.delete(categoryItemToDelete)
+        session.commit()
+        flash('Player Successfully Deleted')
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
+    else:
+        return render_template('deleteCategoryItem.html', item=categoryItemToDelete)
 
 
-
-# Execute file if it is in the main directory and run the webserver on localhost port 8000
+# Execute file only if it is in the main directory and run the webserver on localhost port 8000
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
     app.debug = True
