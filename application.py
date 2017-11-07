@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7.12  # shebang line for the used Python version
+#!/usr/bin/env python2.7.12
 
 from flask import Flask, render_template, request, redirect, jsonify, url_for, flash
 from sqlalchemy import create_engine, asc
@@ -19,13 +19,13 @@ app = Flask(__name__)
 
 # Fake User while login is not implemented:
 
-login_session = {'user_id': 2}
+#login_session = {'user_id': 2}
 
 # Setting Client ID and application name
 
-#CLIENT_ID = json.loads(
-#    open('client_secrets.json', 'r').read())['web']['client_id']
-APPLICATION_NAME = "Category Item Catalog"
+CLIENT_ID = json.loads(
+    open('client_secrets.json', 'r').read())['web']['client_id']
+APPLICATION_NAME = "Catalog Basketball Teams"
 
 
 # Connect to Database and create database session
@@ -37,19 +37,156 @@ session = DBSession()
 
 @app.route('/login')
 def showLogin():
-    return 'Login page'
+    state = ''.join(random.choice(string.ascii_uppercase + string.digits)
+                    for x in xrange(32))
+    login_session['state'] = state
+    return render_template('login.html', STATE=state)
+
 
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
-    return 'Google connect page'
+    # Validate state token
+    if request.args.get('state') != login_session['state']:
+        response = make_response(json.dumps('Invalid state parameter.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Obtain authorization code
+    code = request.data
 
-@app.route('/user/<int:user_id>/')
-def show_user(user_id):
-    return 'Shows page with User ID #%s' % user_id
+    try:
+        # Upgrade the authorization code into a credentials object
+        oauth_flow = flow_from_clientsecrets('client_secrets.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        credentials = oauth_flow.step2_exchange(code)
+    except FlowExchangeError:
+        response = make_response(
+            json.dumps('Failed to upgrade the authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Check that the access token is valid.
+    access_token = credentials.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+           % access_token)
+    h = httplib2.Http()
+    result = json.loads(h.request(url, 'GET')[1])
+    # If there was an error in the access token info, abort.
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Verify that the access token is used for the intended user.
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(
+            json.dumps("Token's user ID doesn't match given user ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Verify that the access token is valid for this app.
+    if result['issued_to'] != CLIENT_ID:
+        response = make_response(
+            json.dumps("Token's client ID does not match app's."), 401)
+        print "Token's client ID does not match app's."
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    stored_access_token = login_session.get('access_token')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_access_token is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'),
+                                 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Store the access token in the session for later use.
+    login_session['access_token'] = credentials.access_token
+    login_session['gplus_id'] = gplus_id
+
+    # Get user info
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = requests.get(userinfo_url, params=params)
+
+    data = answer.json()
+
+    login_session['username'] = data['name']
+    login_session['picture'] = data['picture']
+    login_session['email'] = data['email']
+
+    # see if user exists, if it doesn't make a new one
+    user_id = getUserID(data["email"])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
+
+    output = ''
+    output += '<h1>Welcome!</h1>'
+    output += '<img src="'
+    output += login_session['picture']
+    output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
+    flash("you are now logged in")
+    print "done!"
+    return output
+
+# User Helper Functions
+
+
+def createUser(login_session):
+    newUser = User(name=login_session['username'], email=login_session[
+                   'email'], picture=login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    user = session.query(User).filter_by(email=login_session['email']).one()
+    return user.id
+
+
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
+
+# DISCONNECT - Revoke a current user's token and reset their login_session
+
 
 @app.route('/gdisconnect')
 def gdisconnect():
-    return 'disconnects logged in user'
+        # Only disconnect a connected user.
+    access_token = login_session.get('access_token')
+    if access_token is None:
+        response = make_response(
+            json.dumps('Current user not connected.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+
+    if result['status'] == '200':
+        # Reset the user's sesson.
+        del login_session['access_token']
+        del login_session['gplus_id']
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+
+        flash('Successfully disconnected.')
+        return redirect(url_for('showCatalog'))
+
+    else:
+        # For whatever reason, the given token was invalid.
+        response = make_response(
+            json.dumps('Failed to revoke token for given user.', 400))
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
 # Show all categories
 @app.route('/')
@@ -86,7 +223,8 @@ def editCatalog(catalog_id):
     #if 'username' not in login_session:
     #    return redirect('/login')
     if editedCatalog.user_id != login_session['user_id']:
-        return "<script>function myFunction() {alert('You are not authorized to edit this team. Please create your own team in order to edit.');}</script><body onload='myFunction()'>"
+        flash('You are not authorized to edit this team. Please create your own team in order to edit.')
+        return redirect(url_for('showCatalog'))
     if request.method == 'POST':
         if request.form['name']:
             editedCatalog.name = request.form['name']
@@ -104,7 +242,8 @@ def deleteCatalog(catalog_id):
     #if 'username' not in login_session:
     #    return redirect('/login')
     if catalogToDelete.user_id != login_session['user_id']:
-        return "<script>function myFunction() {alert('You are not authorized to delete this team. Please create your own team in order to delete.');}</script><body onload='myFunction()'>"
+        flash('You are not authorized to delete this team. Please create your own team in order to delete.')
+        return redirect(url_for('showCatalog'))
     if request.method == 'POST':
         session.delete(catalogToDelete)
         flash('%s Successfully Deleted' % catalogToDelete.name)
@@ -134,7 +273,8 @@ def newCategoryItem(catalog_id):
     #    return redirect('/login')
     category = session.query(Catalog).filter_by(id=catalog_id).one()
     if login_session['user_id'] != category.user_id:
-        return "<script>function myFunction() {alert('You are not authorized to add players to this team. Please create your own team in order to add players.');}</script><body onload='myFunction()'>"
+        flash('You are not authorized to add players to this team. Please create your own team in order to add players.')
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
     if request.method == 'POST':
         newCategoryItem = CategoryItem(name=request.form['name'], description=request.form['description'], catalog_id=catalog_id, user_id=category.user_id)
         session.add(newCategoryItem)
@@ -153,7 +293,8 @@ def editCategoryItem(catalog_id, item_id):
     editedCategoryItem = session.query(CategoryItem).filter_by(id=item_id).one()
     catalog = session.query(Catalog).filter_by(id=catalog_id).one()
     if login_session['user_id'] != catalog.user_id:
-        return "<script>function myFunction() {alert('You are not authorized to edit players to this team. Please create your own team in order to edit players.');}</script><body onload='myFunction()'>"
+        flash('You are not authorized to edit players to this team. Please create your own team in order to edit players.')
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
     if request.method == 'POST':
         if request.form['name']:
             editedCategoryItem.name = request.form['name']
@@ -175,7 +316,8 @@ def deleteCategoryItem(catalog_id, item_id):
     catalog = session.query(Catalog).filter_by(id=catalog_id).one()
     categoryItemToDelete = session.query(CategoryItem).filter_by(id=item_id).one()
     if login_session['user_id'] != catalog.user_id:
-        return "<script>function myFunction() {alert('You are not authorized to delete players to this team. Please create your own team in order to delete players.');}</script><body onload='myFunction()'>"
+        flash('You are not authorized to delete players to this team. Please create your own team in order to delete players.')
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
     if request.method == 'POST':
         session.delete(categoryItemToDelete)
         session.commit()
@@ -183,6 +325,21 @@ def deleteCategoryItem(catalog_id, item_id):
         return redirect(url_for('showCategory', catalog_id=catalog_id))
     else:
         return render_template('deleteCategoryItem.html', item=categoryItemToDelete, catalog_id=catalog_id)
+
+
+# JSON APIs to view Catalog and Category Information
+@app.route('/catalog/JSON')
+def catalogJSON():
+    catalog = session.query(Catalog).all()
+    return jsonify(catalog=[cat.serialize for cat in catalog])
+
+
+@app.route('/catalog/<int:catalog_id>/JSON')
+def categoryJSON(catalog_id):
+    category = session.query(Catalog).filter_by(id=catalog_id).one()
+    items = session.query(CategoryItem).filter_by(
+        catalog_id=catalog_id).all()
+    return jsonify(category=[i.serialize for i in items])
 
 
 # Execute file only if it is in the main directory and run the webserver on localhost port 8000

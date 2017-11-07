@@ -21,7 +21,7 @@
           <div id="signinButton">
           <span class="g-signin"
             data-scope="openid email"
-            data-clientid="13140951618-15nik769cellkubaqnjk5facdib2dh4d.apps.googleusercontent.com"
+            data-clientid="139363624615-ich5u0d2vk5b6qgubgv3anun8uhik69m.apps.googleusercontent.com"
             data-redirecturi="postmessage"
             data-accesstype="offline"
             data-cookiepolicy="single_host_origin"
@@ -39,7 +39,7 @@ function signInCallback(authResult) {
     // Hide the sign-in button now that the user is authorized
     $('#signinButton').attr('style', 'display: none');
 
-    // Send the one-time-use code to the server, if the server responds, write a 'login successful' message to the web page and then redirect back to the main restaurants page
+    // Send the one-time-use code to the server, if the server responds, write a 'login successful' message to the web page and then redirect back to the main catalog page
     $.ajax({
       type: 'POST',
       url: '/gconnect?state={{STATE}}',
@@ -51,7 +51,7 @@ function signInCallback(authResult) {
         if (result) {
           $('#result').html('Login Successful!</br>'+ result + '</br>Redirecting...')
          setTimeout(function() {
-          window.location.href = "/restaurant";
+          window.location.href = "/catalog";
          }, 4000);
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7.12  # shebang line for the used Python version
+#!/usr/bin/env python2.7.12
 
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
