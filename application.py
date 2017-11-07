@@ -93,7 +93,7 @@ def editCatalog(catalog_id):
             flash('Team Successfully Edited %s' % editedCatalog.name)
             return redirect(url_for('showCatalog'))
     else:
-        return render_template('editCatalog.html', catalog=editedCatalog)
+        return render_template('editCatalog.html', catalog=editedCatalog, catalog_id=catalog_id)
 
 
 # Delete a category
@@ -111,7 +111,7 @@ def deleteCatalog(catalog_id):
         session.commit()
         return redirect(url_for('showCatalog'))
     else:
-        return render_template('deleteCatalog.html', catalog=catalogToDelete)
+        return render_template('deleteCatalog.html', catalog=catalogToDelete, catalog_id=catalog_id)
 
 
 # Show a category details
@@ -135,12 +135,12 @@ def newCategoryItem(catalog_id):
     category = session.query(Catalog).filter_by(id=catalog_id).one()
     if login_session['user_id'] != category.user_id:
         return "<script>function myFunction() {alert('You are not authorized to add players to this team. Please create your own team in order to add players.');}</script><body onload='myFunction()'>"
-        if request.method == 'POST':
-            newCategoryItem = CategoryItem(name=request.form['name'], description=request.form['description'], catalog_id=catalog_id, user_id=category.user_id)
-            session.add(newCategoryItem)
-            session.commit()
-            flash('New Player %s Successfully Created' % (newCategoryItem.name))
-            return redirect(url_for('showCategory', catalog_id=catalog_id))
+    if request.method == 'POST':
+        newCategoryItem = CategoryItem(name=request.form['name'], description=request.form['description'], catalog_id=catalog_id, user_id=category.user_id)
+        session.add(newCategoryItem)
+        session.commit()
+        flash('New Player %s Successfully Created' % (newCategoryItem.name))
+        return redirect(url_for('showCategory', catalog_id=catalog_id))
     else:
         return render_template('newCategoryItem.html', catalog_id=catalog_id)
 
@@ -174,7 +174,7 @@ def deleteCategoryItem(catalog_id, item_id):
     #    return redirect('/login')
     catalog = session.query(Catalog).filter_by(id=catalog_id).one()
     categoryItemToDelete = session.query(CategoryItem).filter_by(id=item_id).one()
-    if login_session['user_id'] != restaurant.user_id:
+    if login_session['user_id'] != catalog.user_id:
         return "<script>function myFunction() {alert('You are not authorized to delete players to this team. Please create your own team in order to delete players.');}</script><body onload='myFunction()'>"
     if request.method == 'POST':
         session.delete(categoryItemToDelete)
@@ -182,7 +182,7 @@ def deleteCategoryItem(catalog_id, item_id):
         flash('Player Successfully Deleted')
         return redirect(url_for('showCategory', catalog_id=catalog_id))
     else:
-        return render_template('deleteCategoryItem.html', item=categoryItemToDelete)
+        return render_template('deleteCategoryItem.html', item=categoryItemToDelete, catalog_id=catalog_id)
 
 
 # Execute file only if it is in the main directory and run the webserver on localhost port 8000
