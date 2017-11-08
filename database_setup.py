@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 
 Base = declarative_base()
 
+
 # DB class for the user
 class User(Base):
     __tablename__ = 'user'

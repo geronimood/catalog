@@ -17,9 +17,6 @@ import requests
 
 app = Flask(__name__)
 
-# Fake User while login is not implemented:
-
-#login_session = {'user_id': 2}
 
 # Setting Client ID and application name
 
@@ -35,6 +32,7 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+# Route for login
 @app.route('/login')
 def showLogin():
     state = ''.join(random.choice(string.ascii_uppercase + string.digits)
@@ -43,6 +41,7 @@ def showLogin():
     return render_template('login.html', STATE=state)
 
 
+# Route for google oauth2 authentication
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
     # Validate state token
@@ -130,8 +129,8 @@ def gconnect():
     print "done!"
     return output
 
-# User Helper Functions
 
+# User Helper Functions
 
 def createUser(login_session):
     newUser = User(name=login_session['username'], email=login_session[
@@ -154,8 +153,8 @@ def getUserID(email):
     except:
         return None
 
-# DISCONNECT - Revoke a current user's token and reset their login_session
 
+# DISCONNECT - Revoke a current user's token and reset their login_session
 
 @app.route('/gdisconnect')
 def gdisconnect():
@@ -188,22 +187,23 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
 
+
 # Show all categories
 @app.route('/')
 @app.route('/catalog/')
 def showCatalog():
     catalog = session.query(Catalog).order_by(asc(Catalog.name))
-    #if 'username' not in login_session:
-    #    return render_template('publicCatalog.html', catalog=catalog)
-    #else:
-    return render_template('catalog.html', catalog=catalog)
+    if 'username' not in login_session:
+        return render_template('publicCatalog.html', catalog=catalog)
+    else:
+        return render_template('catalog.html', catalog=catalog)
 
 
 # Create a new category
 @app.route('/catalog/new/', methods=['GET', 'POST'])
 def newCatalog():
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     if request.method == 'POST':
         newCatalog = Catalog(
             name=request.form['name'], user_id=login_session['user_id'])
@@ -220,8 +220,8 @@ def newCatalog():
 def editCatalog(catalog_id):
     editedCatalog = session.query(
         Catalog).filter_by(id=catalog_id).one()
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     if editedCatalog.user_id != login_session['user_id']:
         flash('You are not authorized to edit this team. Please create your own team in order to edit.')
         return redirect(url_for('showCatalog'))
@@ -239,8 +239,8 @@ def editCatalog(catalog_id):
 def deleteCatalog(catalog_id):
     catalogToDelete = session.query(
         Catalog).filter_by(id=catalog_id).one()
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     if catalogToDelete.user_id != login_session['user_id']:
         flash('You are not authorized to delete this team. Please create your own team in order to delete.')
         return redirect(url_for('showCatalog'))
@@ -257,20 +257,20 @@ def deleteCatalog(catalog_id):
 @app.route('/catalog/<int:catalog_id>/')
 def showCategory(catalog_id):
     category = session.query(Catalog).filter_by(id=catalog_id).one()
-    creator = 'test' #getUserInfo(catalog.user_id)
+    creator = getUserInfo(category.user_id)
     items = session.query(CategoryItem).filter_by(
         catalog_id=catalog_id).all()
-    #if 'username' not in login_session or creator.id != login_session['user_id']:
-    #    return render_template('publicCategoryItems.html', items=items, category=category, creator=creator)
-    #else:
-    return render_template('categoryItems.html', items=items, category=category, creator=creator)
+    if 'username' not in login_session or creator.id != login_session['user_id']:
+        return render_template('publicCategoryItems.html', items=items, category=category, creator=creator)
+    else:
+        return render_template('categoryItems.html', items=items, category=category, creator=creator)
 
 
 # Create a new category item
 @app.route('/catalog/<int:catalog_id>/new/', methods=['GET', 'POST'])
 def newCategoryItem(catalog_id):
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     category = session.query(Catalog).filter_by(id=catalog_id).one()
     if login_session['user_id'] != category.user_id:
         flash('You are not authorized to add players to this team. Please create your own team in order to add players.')
@@ -288,8 +288,8 @@ def newCategoryItem(catalog_id):
 # Edit a category item
 @app.route('/catalog/<int:catalog_id>/<int:item_id>/edit', methods=['GET', 'POST'])
 def editCategoryItem(catalog_id, item_id):
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     editedCategoryItem = session.query(CategoryItem).filter_by(id=item_id).one()
     catalog = session.query(Catalog).filter_by(id=catalog_id).one()
     if login_session['user_id'] != catalog.user_id:
@@ -311,8 +311,8 @@ def editCategoryItem(catalog_id, item_id):
 # Delete a category item
 @app.route('/catalog/<int:catalog_id>/<int:item_id>/delete', methods=['GET', 'POST'])
 def deleteCategoryItem(catalog_id, item_id):
-    #if 'username' not in login_session:
-    #    return redirect('/login')
+    if 'username' not in login_session:
+        return redirect('/login')
     catalog = session.query(Catalog).filter_by(id=catalog_id).one()
     categoryItemToDelete = session.query(CategoryItem).filter_by(id=item_id).one()
     if login_session['user_id'] != catalog.user_id:
