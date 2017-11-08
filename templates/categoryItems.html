@@ -39,7 +39,7 @@
 			</a>
 			<a href="{{url_for('newCategoryItem', catalog_id = category.id )}}">
 				<button class="btn btn-default" id="new-player">
-					<span class="glyphicon glyphicon-glass" aria-hidden="true"></span>Add Player
+					<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>Add Player
 				</button>
 			</a>
 						<a href="{{url_for('deleteCatalog', catalog_id = category.id )}}">
@@ -63,7 +63,7 @@
 								<a href='{{url_for('editCategoryItem', catalog_id = category.id, item_id=i.id ) }}'>Edit</a> |
 								<a href='{{url_for('deleteCategoryItem', catalog_id = category.id, item_id=i.id ) }}'>Delete</a>
 							</div>
-						
+
 					{% endfor %}
 			</div>
 
