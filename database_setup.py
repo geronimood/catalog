@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 
 Base = declarative_base()
 
+# DB class for the user
 class User(Base):
     __tablename__ = 'user'
 
@@ -16,6 +17,7 @@ class User(Base):
     picture = Column(String(250))
 
 
+# DB class for the whole catalog
 class Catalog(Base):
     __tablename__ = 'catalog'
 
@@ -33,6 +35,7 @@ class Catalog(Base):
         }
 
 
+# DB class for CategoryItems in the catalog
 class CategoryItem(Base):
     __tablename__ = 'menu_item'
 
@@ -53,7 +56,8 @@ class CategoryItem(Base):
             'id': self.id,
         }
 
-engine = create_engine('sqlite:///catalog.db')
 
+# Create the catalog DB
+engine = create_engine('sqlite:///catalog.db')
 
 Base.metadata.create_all(engine)
